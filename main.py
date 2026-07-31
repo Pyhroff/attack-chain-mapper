@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from chain.chain_mapper import map_attack_chain
-from cve.cve_matcher import match_cves
+from cve import assess_vulnerabilities
 from recon import run_full_recon
 from report.html_generator import generate_html_report
 from utils import setup_logging
@@ -17,14 +17,14 @@ def run_recon_phase(target: str, verbose: bool) -> dict:
     return recon_results
 
 
-def run_cve_phase(recon_data: dict, verbose: bool) -> list:
-    """Placeholder CVE matching orchestration."""
-    cves = match_cves(recon_data, verbose=verbose)
+def run_cve_phase(recon_data: dict, verbose: bool) -> dict:
+    """Vulnerability intelligence orchestration."""
+    cves = assess_vulnerabilities(recon_data)
     print("Phase 2 completed")
     return cves
 
 
-def run_chain_phase(recon_data: dict, cve_data: list, verbose: bool) -> list:
+def run_chain_phase(recon_data: dict, cve_data: dict, verbose: bool) -> list:
     """Placeholder attack chain mapping orchestration."""
     chains = map_attack_chain(recon_data, cve_data, verbose=verbose)
     print("Phase 3 completed")
@@ -59,6 +59,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Run only the recon phase and print JSON findings",
     )
+    parser.add_argument(
+        "--cve-only",
+        action="store_true",
+        help="Run recon + vulnerability assessment and print CVE JSON findings",
+    )
     return parser.parse_args()
 
 
@@ -73,6 +78,10 @@ def main() -> int:
 
     print("Phase 1 completed")
     cve_data = run_cve_phase(recon_data, args.verbose)
+    if args.cve_only:
+        print(json.dumps(cve_data, indent=2))
+        return 0
+
     chains = run_chain_phase(recon_data, cve_data, args.verbose)
     report_path = run_report_phase(args.target, chains, args.output, args.verbose)
 

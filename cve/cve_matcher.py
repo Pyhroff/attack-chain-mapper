@@ -1,13 +1,7 @@
-"""CVE matching placeholders."""
+"""Backward-compatible wrapper around defensive vulnerability assessment."""
+
+from cve import assess_vulnerabilities
 
 
-def match_cves(recon_data: dict, verbose: bool = False) -> list:
-    if verbose:
-        print("[cve] Matching CVEs from recon data")
-    return [
-        {
-            "id": "CVE-2023-0000",
-            "component": "nginx",
-            "cvss": 7.5,
-        }
-    ]
+def match_cves(recon_data: dict, verbose: bool = False) -> dict:
+    return assess_vulnerabilities(recon_data)
