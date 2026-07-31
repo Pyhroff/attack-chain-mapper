@@ -1,28 +1,20 @@
 """CLI entry point for the attack chain mapper."""
 
 import argparse
+import json
 from pathlib import Path
 
 from chain.chain_mapper import map_attack_chain
 from cve.cve_matcher import match_cves
-from recon.fingerprinting import fingerprint_target
-from recon.misconfig_scanner import scan_misconfigurations
-from recon.subdomain_enum import enumerate_subdomains
+from recon import run_full_recon
 from report.html_generator import generate_html_report
 from utils import setup_logging
 
 
 def run_recon_phase(target: str, verbose: bool) -> dict:
-    """Placeholder recon phase orchestration."""
-    subdomains = enumerate_subdomains(target, verbose=verbose)
-    fingerprints = fingerprint_target(target, verbose=verbose)
-    misconfigs = scan_misconfigurations(target, verbose=verbose)
-    print("Phase 1 completed")
-    return {
-        "subdomains": subdomains,
-        "fingerprints": fingerprints,
-        "misconfigs": misconfigs,
-    }
+    """Recon phase orchestration."""
+    recon_results = run_full_recon(target)
+    return recon_results
 
 
 def run_cve_phase(recon_data: dict, verbose: bool) -> list:
@@ -62,6 +54,11 @@ def parse_args() -> argparse.Namespace:
         default="attack_chain_report.html",
         help="Output HTML report path",
     )
+    parser.add_argument(
+        "--recon-only",
+        action="store_true",
+        help="Run only the recon phase and print JSON findings",
+    )
     return parser.parse_args()
 
 
@@ -70,6 +67,11 @@ def main() -> int:
     setup_logging(args.verbose)
 
     recon_data = run_recon_phase(args.target, args.verbose)
+    if args.recon_only:
+        print(json.dumps(recon_data, indent=2))
+        return 0
+
+    print("Phase 1 completed")
     cve_data = run_cve_phase(recon_data, args.verbose)
     chains = run_chain_phase(recon_data, cve_data, args.verbose)
     report_path = run_report_phase(args.target, chains, args.output, args.verbose)
