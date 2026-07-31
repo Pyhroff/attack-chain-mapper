@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Risk Dashboard - {{ domain }}</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: Inter, Segoe UI, Arial, sans-serif;
+      margin: 0;
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    h1, h2 { margin-top: 0; }
+    .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 12px;
+    }
+    .metric { font-size: 28px; font-weight: 700; }
+    .subtle { color: #94a3b8; font-size: 12px; }
+    .section { margin-top: 18px; }
+    .row { display: grid; gap: 12px; grid-template-columns: 2fr 1fr; }
+    @media (max-width: 900px) { .row { grid-template-columns: 1fr; } }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid #334155; padding: 8px; text-align: left; }
+    th button { background: transparent; border: 0; color: inherit; font: inherit; cursor: pointer; }
+    .badge-red { color: #fecaca; background: #7f1d1d; padding: 3px 7px; border-radius: 999px; }
+    .badge-yellow { color: #fef08a; background: #854d0e; padding: 3px 7px; border-radius: 999px; }
+    .badge-green { color: #bbf7d0; background: #14532d; padding: 3px 7px; border-radius: 999px; }
+    .timeline-item { border-left: 3px solid #334155; padding-left: 10px; margin-bottom: 10px; }
+    svg { width: 100%; height: 360px; background: #0b1220; border: 1px solid #334155; border-radius: 8px; }
+    .legend span { margin-right: 10px; }
+    details pre { white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Executive Risk Dashboard - {{ domain }}</h1>
+    <div class="grid">
+      <div class="card"><div class="subtle">Total Assets</div><div class="metric">{{ summary.total_assets }}</div></div>
+      <div class="card"><div class="subtle">Critical Vulnerabilities</div><div class="metric">{{ summary.critical_vulns }}</div></div>
+      <div class="card"><div class="subtle">Immediate Patching Assets</div><div class="metric">{{ risk_matrix.zones.RED|length }}</div></div>
+      <div class="card"><div class="subtle">Risk Trend</div><div class="metric" style="font-size:18px">{{ summary.attack_surface_trend }}</div></div>
+    </div>
+
+    <div class="section card">
+      <h2>Quick Win</h2>
+      <p>Patch these 3 assets first to reduce immediate exposure:</p>
+      <ol>
+      {% for asset in top_5_patch_assets[:3] %}
+        <li>{{ asset.asset }} (Risk {{ asset.risk_score }})</li>
+      {% endfor %}
+      </ol>
+    </div>
+
+    <div class="section row">
+      <div class="card">
+        <h2>Risk Matrix</h2>
+        <div class="legend">
+          <span class="badge-red">RED: Patch immediately</span>
+          <span class="badge-yellow">YELLOW: Schedule</span>
+          <span class="badge-green">GREEN: Monitor</span>
+        </div>
+        <svg id="risk-matrix" viewBox="0 0 600 360" role="img" aria-label="Risk matrix">
+          <line x1="40" y1="320" x2="560" y2="320" stroke="#64748b" />
+          <line x1="40" y1="20" x2="40" y2="320" stroke="#64748b" />
+          <text x="280" y="350" fill="#94a3b8">Asset Criticality (1-10)</text>
+          <text x="-220" y="15" transform="rotate(-90)" fill="#94a3b8">Vulnerability Severity (1-10)</text>
+          <line x1="350" y1="20" x2="350" y2="320" stroke="#334155" stroke-dasharray="4 4"/>
+          <line x1="40" y1="120" x2="560" y2="120" stroke="#334155" stroke-dasharray="4 4"/>
+          {% for point in risk_matrix.points %}
+          <circle
+            cx="{{ 40 + (point.x_criticality * 52) }}"
+            cy="{{ 320 - (point.y_severity * 30) }}"
+            r="7"
+            fill="{% if point.zone == 'RED' %}#ef4444{% elif point.zone == 'YELLOW' %}#facc15{% else %}#22c55e{% endif %}"
+            stroke="#0f172a"
+            stroke-width="1"
+            data-asset="{{ point.asset }}"
+            data-risk="{{ point.risk_score }}"
+            data-level="{{ point.risk_level }}"
+            onclick="showAssetDetails(this)"
+            style="cursor:pointer"
+          ></circle>
+          {% endfor %}
+        </svg>
+        <p class="subtle">
+          Top-right = CRITICAL: Patch immediately | Top-left = HIGH severity / lower criticality |
+          Bottom-right = High criticality / lower severity | Bottom-left = Lower urgency
+        </p>
+      </div>
+      <div class="card">
+        <h2>Selected Asset</h2>
+        <div id="asset-detail">Click a matrix point to view details.</div>
+      </div>
+    </div>
+
+    <div class="section card">
+      <h2>Remediation Roadmap</h2>
+      {% for week, block in remediation_roadmap.items() %}
+      <h3>{{ week|replace('_', ' ')|upper }} - {{ block.label }}</h3>
+      {% for item in block["items"] %}
+      <div class="timeline-item">
+        <strong>{{ item.asset }}</strong><br>
+        Current: {{ item.current_version }} | Patch: {{ item.patch_version }}<br>
+        Urgency: {{ item.urgency }}{% if item.top_cve %} ({{ item.top_cve }}, CVSS {{ item.top_cvss }}){% endif %}<br>
+        Downtime: {{ item.downtime }} | Suggested window: {{ item.maintenance_window }}
+      </div>
+      {% endfor %}
+      {% endfor %}
+    </div>
+
+    <div class="section card">
+      <h2>Asset Inventory</h2>
+      <table id="asset-table">
+        <thead>
+          <tr>
+            <th><button onclick="sortTable(0)">Asset</button></th>
+            <th><button onclick="sortTable(1)">Service</button></th>
+            <th><button onclick="sortTable(2, true)">Criticality</button></th>
+            <th><button onclick="sortTable(3, true)">Vulns</button></th>
+            <th><button onclick="sortTable(4, true)">Max CVSS</button></th>
+            <th><button onclick="sortTable(5, true)">Risk</button></th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for asset in asset_inventory %}
+          <tr>
+            <td>{{ asset.asset }}</td>
+            <td>{{ asset.service_type }}</td>
+            <td>{{ asset.criticality }}</td>
+            <td>{{ asset.vulnerability_count }}</td>
+            <td>{{ asset.max_cvss }}</td>
+            <td>{{ asset.risk_score }}</td>
+            <td>
+              {% if asset.vulnerability_count == 0 %}current
+              {% elif asset.risk_level == "CRITICAL" %}unpatched
+              {% else %}partially patched{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section row">
+      <div class="card">
+        <h2>Dependency Map</h2>
+        {% for asset, info in dependencies.items() %}
+        <details>
+          <summary><strong>{{ asset }}</strong> - {{ info.impact_level }}</summary>
+          <ul>
+            {% for dep in info.downstream_impact %}
+            <li>{{ dep }}</li>
+            {% endfor %}
+          </ul>
+        </details>
+        {% endfor %}
+      </div>
+      <div class="card">
+        <h2>Top 5 Recommendations</h2>
+        <ol>
+        {% for asset in top_5_patch_assets %}
+          <li>
+            {% if asset.vulnerabilities and asset.vulnerabilities[0].patch_version %}
+              Patch {{ asset.asset }} to {{ asset.vulnerabilities[0].patch_version }} (risk {{ asset.risk_score }})
+            {% else %}
+              Prioritize hardening and vendor patch tracking for {{ asset.asset }} (risk {{ asset.risk_score }})
+            {% endif %}
+          </li>
+        {% endfor %}
+        </ol>
+      </div>
+    </div>
+
+    <div class="section card">
+      <h2>Raw Dashboard Data</h2>
+      <details><summary>Expand JSON</summary><pre>{{ dashboard_json }}</pre></details>
+    </div>
+  </div>
+
+  <script>
+    function showAssetDetails(node) {
+      const detail = document.getElementById("asset-detail");
+      detail.innerHTML = "<strong>" + node.dataset.asset + "</strong><br>" +
+        "Risk score: " + node.dataset.risk + "<br>" +
+        "Risk level: " + node.dataset.level;
+    }
+
+    function sortTable(column, numeric=false) {
+      const table = document.getElementById("asset-table");
+      const tbody = table.tBodies[0];
+      const rows = Array.from(tbody.rows);
+      const asc = table.dataset.sortDir !== "asc";
+      rows.sort((a, b) => {
+        let left = a.cells[column].innerText.trim();
+        let right = b.cells[column].innerText.trim();
+        if (numeric) {
+          left = parseFloat(left || "0");
+          right = parseFloat(right || "0");
+          return asc ? left - right : right - left;
+        }
+        return asc ? left.localeCompare(right) : right.localeCompare(left);
+      });
+      rows.forEach(row => tbody.appendChild(row));
+      table.dataset.sortDir = asc ? "asc" : "desc";
+    }
+  </script>
+</body>
+</html>
