@@ -67,6 +67,42 @@ class CliIntegrationTests(unittest.TestCase):
             self.assertTrue((out_dir / "executive_summary.json").exists())
             self.assertEqual(mock_assess_risk.call_count, 1)
 
+    @patch("main.setup_logging")
+    @patch("main.assess_risk")
+    @patch("main.run_cve_phase")
+    @patch("main.run_recon_phase")
+    def test_offline_data_skips_live_recon_and_cve(self, mock_recon, mock_cve, mock_assess_risk, _mock_logging):
+        mock_assess_risk.return_value = {
+            "domain": "example.com",
+            "dashboard": {"remediation_roadmap": {}, "summary": {}, "risk_matrix": {"points": [], "zones": {"RED": []}}},
+            "assets": [],
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out_dir = Path(tmpdir)
+            fixture = {
+                "recon_results": {"domain": "example.com", "fingerprints": {}},
+                "vulnerability_results": {},
+            }
+            fixture_path = out_dir / "fixture.json"
+            fixture_path.write_text(json.dumps(fixture), encoding="utf-8")
+
+            argv = ["main.py", "example.com", "--offline-data", str(fixture_path), "--output", tmpdir, "--output-format", "json"]
+            with patch("sys.argv", argv):
+                rc = main.main()
+
+            self.assertEqual(rc, 0)
+            self.assertEqual(mock_recon.call_count, 0)
+            self.assertEqual(mock_cve.call_count, 0)
+            self.assertTrue((out_dir / "risk_assessment.json").exists())
+
+    @patch("main.setup_logging")
+    @patch("main.apply_runtime_profile")
+    def test_invalid_target_is_rejected(self, _mock_profile, _mock_logging):
+        argv = ["main.py", "not_a_domain", "--recon-only"]
+        with patch("sys.argv", argv):
+            with self.assertRaises(ValueError):
+                main.main()
+
 
 if __name__ == "__main__":
     unittest.main()

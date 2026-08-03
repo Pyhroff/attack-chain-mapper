@@ -5,6 +5,7 @@ import logging
 import time
 from collections.abc import Callable
 from functools import wraps
+from pathlib import Path
 
 import config
 
@@ -40,6 +41,39 @@ def apply_runtime_profile(profile: str) -> dict:
     config.RETRY_ATTEMPTS = selected["retry_attempts"]
     config.RETRY_BACKOFF_SECONDS = selected["retry_backoff_seconds"]
     return selected
+
+
+def apply_config_file_overrides(config_file: str | None) -> dict:
+    """Apply JSON config overrides to runtime config module."""
+    if not config_file:
+        return {}
+    path = Path(config_file)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    applied = {}
+
+    for key in ("SHODAN_API_KEY", "VIRUSTOTAL_API_KEY", "NVD_API_KEY"):
+        if key in payload:
+            setattr(config, key, payload[key])
+            applied[key] = "set" if payload[key] else "empty"
+
+    if "request_timeout_seconds" in payload:
+        config.REQUEST_TIMEOUT_SECONDS = int(payload["request_timeout_seconds"])
+        applied["REQUEST_TIMEOUT_SECONDS"] = config.REQUEST_TIMEOUT_SECONDS
+    if "retry_attempts" in payload:
+        config.RETRY_ATTEMPTS = int(payload["retry_attempts"])
+        applied["RETRY_ATTEMPTS"] = config.RETRY_ATTEMPTS
+    if "retry_backoff_seconds" in payload:
+        config.RETRY_BACKOFF_SECONDS = float(payload["retry_backoff_seconds"])
+        applied["RETRY_BACKOFF_SECONDS"] = config.RETRY_BACKOFF_SECONDS
+
+    if "asset_criticality_rules" in payload and isinstance(payload["asset_criticality_rules"], dict):
+        config.ASSET_CRITICALITY_RULES.update(payload["asset_criticality_rules"])
+        applied["ASSET_CRITICALITY_RULES"] = "updated"
+    if "maintenance_windows" in payload and isinstance(payload["maintenance_windows"], dict):
+        config.MAINTENANCE_WINDOWS.update(payload["maintenance_windows"])
+        applied["MAINTENANCE_WINDOWS"] = "updated"
+
+    return applied
 
 
 def retry(
