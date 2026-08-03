@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 import requests
 from bs4 import BeautifulSoup
 
-from config import REQUEST_TIMEOUT_SECONDS
+import config
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ def _collect_http_metadata(url: str) -> dict:
         "error": None,
     }
     try:
-        head_response = requests.head(url, timeout=REQUEST_TIMEOUT_SECONDS, allow_redirects=True)
+        head_response = requests.head(url, timeout=config.REQUEST_TIMEOUT_SECONDS, allow_redirects=True)
         metadata["status_code"] = head_response.status_code
         metadata["server"] = head_response.headers.get("Server")
         metadata["headers"] = dict(head_response.headers)
@@ -34,7 +34,7 @@ def _collect_http_metadata(url: str) -> dict:
         return metadata
 
     try:
-        get_response = requests.get(url, timeout=REQUEST_TIMEOUT_SECONDS, allow_redirects=True)
+        get_response = requests.get(url, timeout=config.REQUEST_TIMEOUT_SECONDS, allow_redirects=True)
         soup = BeautifulSoup(get_response.text, "html.parser")
         if soup.title and soup.title.string:
             metadata["title"] = soup.title.string.strip()
@@ -54,7 +54,7 @@ def _parse_ssl_certificate(hostname: str, ip: str) -> dict:
     }
     context = ssl.create_default_context()
     try:
-        with socket.create_connection((ip, 443), timeout=REQUEST_TIMEOUT_SECONDS) as raw_sock:
+        with socket.create_connection((ip, 443), timeout=config.REQUEST_TIMEOUT_SECONDS) as raw_sock:
             with context.wrap_socket(raw_sock, server_hostname=hostname) as tls_sock:
                 cert = tls_sock.getpeercert()
     except Exception as exc:
@@ -117,7 +117,7 @@ def _detect_tech_stack(domain: str, http_data: dict, https_data: dict) -> list[d
     try:
         docker_probe = requests.get(
             f"http://{domain}/v2/",
-            timeout=REQUEST_TIMEOUT_SECONDS,
+            timeout=config.REQUEST_TIMEOUT_SECONDS,
             allow_redirects=True,
         )
         if docker_probe.status_code in (200, 401):

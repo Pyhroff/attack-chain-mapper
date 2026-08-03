@@ -6,7 +6,7 @@ import re
 import dns.resolver
 import requests
 
-from config import REQUEST_TIMEOUT_SECONDS, SHODAN_API_KEY
+import config
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ def check_s3_buckets(domain: str) -> list[dict]:
         f"{label}-assets",
         f"{label}-static",
     ]
-    if SHODAN_API_KEY:
+    if config.SHODAN_API_KEY:
         logger.info("S3 bucket check: Shodan key detected (direct checks enabled regardless)")
     else:
         logger.info("S3 bucket check: no Shodan key; using direct bucket checks")
@@ -32,7 +32,7 @@ def check_s3_buckets(domain: str) -> list[dict]:
     for bucket in candidates:
         url = f"https://{bucket}.s3.amazonaws.com"
         try:
-            response = requests.get(url, timeout=REQUEST_TIMEOUT_SECONDS)
+            response = requests.get(url, timeout=config.REQUEST_TIMEOUT_SECONDS)
         except Exception as exc:
             logger.debug("S3 probe failed for %s: %s", bucket, exc)
             continue
@@ -73,7 +73,7 @@ def check_github_leaks(domain: str) -> dict:
                 endpoint,
                 params={"q": query, "per_page": 1},
                 headers=headers,
-                timeout=REQUEST_TIMEOUT_SECONDS,
+                timeout=config.REQUEST_TIMEOUT_SECONDS,
             )
             if response.status_code != 200:
                 logger.warning(

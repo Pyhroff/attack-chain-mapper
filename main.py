@@ -13,7 +13,7 @@ from report.html_generator import (
     generate_risk_dashboard,
 )
 from risk import assess_risk
-from utils import setup_logging
+from utils import apply_runtime_profile, setup_logging
 
 
 def run_recon_phase(target: str, verbose: bool) -> dict:
@@ -46,6 +46,26 @@ def run_report_phase(target: str, chains: list, output_path: str, verbose: bool)
 def _write_json(data: dict, path: Path) -> Path:
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
     return path
+
+
+def _build_executive_summary(risk_data: dict) -> dict:
+    dashboard = risk_data.get("dashboard", {})
+    summary = dashboard.get("summary", {})
+    top_assets = [
+        {
+            "asset": item.get("asset"),
+            "risk_score": item.get("risk_score"),
+            "risk_level": item.get("risk_level"),
+        }
+        for item in dashboard.get("top_5_patch_assets", [])[:3]
+    ]
+    return {
+        "domain": risk_data.get("domain"),
+        "total_assets": summary.get("total_assets", 0),
+        "critical_vulnerabilities": summary.get("critical_vulns", 0),
+        "vulnerable_assets": summary.get("vulnerable_assets", 0),
+        "top_patch_targets": top_assets,
+    }
 
 
 def parse_args() -> argparse.Namespace:
@@ -90,12 +110,25 @@ def parse_args() -> argparse.Namespace:
         default="both",
         help="Risk assessment output format",
     )
+    parser.add_argument(
+        "--profile",
+        choices=["quick", "standard", "deep"],
+        default="standard",
+        help="Runtime profile for timeout/retry tuning",
+    )
+    parser.add_argument(
+        "--log-format",
+        choices=["text", "json"],
+        default="text",
+        help="Logging output format",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    setup_logging(args.verbose)
+    apply_runtime_profile(args.profile)
+    setup_logging(args.verbose, log_format=args.log_format)
     output_dir = Path(args.output)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -104,6 +137,7 @@ def main() -> int:
     risk_json_path = output_dir / "risk_assessment.json"
     risk_html_path = output_dir / "risk_dashboard.html"
     roadmap_text_path = output_dir / "remediation_roadmap.txt"
+    summary_json_path = output_dir / "executive_summary.json"
 
     if args.risk_only:
         if not recon_json_path.exists() or not vuln_json_path.exists():
@@ -120,6 +154,7 @@ def main() -> int:
 
         if args.output_format in {"json", "both"}:
             _write_json(risk_data, risk_json_path)
+            _write_json(_build_executive_summary(risk_data), summary_json_path)
         if args.output_format in {"html", "both"}:
             generate_risk_dashboard(risk_data["dashboard"], str(risk_html_path))
         if args.include_roadmap:
@@ -150,6 +185,7 @@ def main() -> int:
     )
     if args.output_format in {"json", "both"}:
         _write_json(risk_data, risk_json_path)
+        _write_json(_build_executive_summary(risk_data), summary_json_path)
     if args.output_format in {"html", "both"}:
         generate_risk_dashboard(risk_data["dashboard"], str(risk_html_path))
     if args.include_roadmap:

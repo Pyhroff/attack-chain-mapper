@@ -8,7 +8,7 @@ import dns.resolver
 import requests
 from bs4 import BeautifulSoup
 
-from config import REQUEST_TIMEOUT_SECONDS, SHODAN_API_KEY
+import config
 from utils import deduplicate
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ def _from_crt_sh(domain: str) -> list[str]:
         response = requests.get(
             "https://crt.sh/",
             params={"q": f"%.{domain}", "output": "json"},
-            timeout=REQUEST_TIMEOUT_SECONDS,
+            timeout=config.REQUEST_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
         results = response.json()
@@ -58,7 +58,7 @@ def _from_crt_sh(domain: str) -> list[str]:
 
 def _from_shodan_ip_history(domain: str) -> list[str]:
     logger.info("Subdomain source: Shodan")
-    if not SHODAN_API_KEY:
+    if not config.SHODAN_API_KEY:
         logger.info("Skipping Shodan source: SHODAN_API_KEY not configured")
         return []
 
@@ -68,7 +68,7 @@ def _from_shodan_ip_history(domain: str) -> list[str]:
         logger.warning("Shodan package unavailable: %s", exc)
         return []
 
-    api = shodan.Shodan(SHODAN_API_KEY)
+    api = shodan.Shodan(config.SHODAN_API_KEY)
     try:
         dns_records = dns.resolver.resolve(domain, "A")
         ips = [record.to_text() for record in dns_records]
@@ -103,7 +103,7 @@ def _from_google_dorking(domain: str) -> list[str]:
                     "Chrome/126.0.0.0 Safari/537.36"
                 )
             },
-            timeout=REQUEST_TIMEOUT_SECONDS,
+            timeout=config.REQUEST_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
     except Exception as exc:
