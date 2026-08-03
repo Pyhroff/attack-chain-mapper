@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from config import ASSET_CRITICALITY_RULES, MAINTENANCE_WINDOWS
 
@@ -248,7 +248,7 @@ def assess_attack_surface(asset_list: list[dict], recon_results: dict | None = N
         trend = "STABLE (no prior baseline available)"
 
     summary = {
-        "generated_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "total_assets": total_assets,
         "exposed_services": exposed_services,
         "vulnerable_assets": vulnerable_assets,
@@ -259,4 +259,3 @@ def assess_attack_surface(asset_list: list[dict], recon_results: dict | None = N
     }
     logger.info("Attack surface summary: %s", summary)
     return summary
-
