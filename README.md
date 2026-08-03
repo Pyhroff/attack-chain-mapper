@@ -53,6 +53,8 @@ python main.py example.com --offline-data ./fixtures/sample_assessment.json
 python main.py example.com --env-file ./.env
 ```
 
+Detailed usage + features: see **[USER_GUIDE.md](USER_GUIDE.md)**.
+
 Configuration precedence (highest to lowest):
 1. `--config-file` JSON values
 2. `.env` / `--env-file` values
@@ -86,6 +88,8 @@ Running the full pipeline generates:
    Recon/CVE/Risk unit tests + CLI integration tests.
 6. **Phase 6 — Hardening (initial pass)**: ✅ Done  
    Runtime profiles, JSON logging option, config-file overrides, input validation, offline fixture mode.
+7. **Phase 7 — Delivery/Ops readiness (lean)**: ✅ Done  
+   CI workflow, packaging entrypoint, Docker support, and detailed user guide.
 
 ## When Is This "Done"?
 
