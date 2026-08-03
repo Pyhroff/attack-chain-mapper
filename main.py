@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 from chain.chain_mapper import map_attack_chain
@@ -13,7 +14,7 @@ from report.html_generator import (
     generate_risk_dashboard,
 )
 from risk import assess_risk
-from utils import apply_runtime_profile, setup_logging
+from utils import apply_config_file_overrides, apply_runtime_profile, setup_logging
 
 
 def run_recon_phase(target: str, verbose: bool) -> dict:
@@ -66,6 +67,12 @@ def _build_executive_summary(risk_data: dict) -> dict:
         "vulnerable_assets": summary.get("vulnerable_assets", 0),
         "top_patch_targets": top_assets,
     }
+
+
+def _validate_target(target: str) -> None:
+    pattern = re.compile(r"^(?=.{1,253}$)(?!-)(?:[a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,63}$")
+    if not pattern.fullmatch(target):
+        raise ValueError("Invalid target domain format. Example: example.com")
 
 
 def parse_args() -> argparse.Namespace:
@@ -122,13 +129,23 @@ def parse_args() -> argparse.Namespace:
         default="text",
         help="Logging output format",
     )
+    parser.add_argument(
+        "--config-file",
+        help="Path to JSON file with runtime/config overrides",
+    )
+    parser.add_argument(
+        "--offline-data",
+        help="Path to JSON fixture with recon_results and optional vulnerability_results",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
     apply_runtime_profile(args.profile)
+    apply_config_file_overrides(args.config_file)
     setup_logging(args.verbose, log_format=args.log_format)
+    _validate_target(args.target)
     output_dir = Path(args.output)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -138,6 +155,35 @@ def main() -> int:
     risk_html_path = output_dir / "risk_dashboard.html"
     roadmap_text_path = output_dir / "remediation_roadmap.txt"
     summary_json_path = output_dir / "executive_summary.json"
+
+    if args.offline_data:
+        fixture = json.loads(Path(args.offline_data).read_text(encoding="utf-8"))
+        recon_data = fixture.get("recon_results", {})
+        if not recon_data:
+            raise ValueError("offline-data requires recon_results object")
+        cve_data = fixture.get("vulnerability_results")
+        if cve_data is None:
+            cve_data = assess_vulnerabilities(recon_data)
+        _write_json(recon_data, recon_json_path)
+        _write_json(cve_data, vuln_json_path)
+
+        risk_data = assess_risk(
+            recon_data,
+            cve_data,
+            include_roadmap=args.include_roadmap,
+        )
+        if args.output_format in {"json", "both"}:
+            _write_json(risk_data, risk_json_path)
+            _write_json(_build_executive_summary(risk_data), summary_json_path)
+        if args.output_format in {"html", "both"}:
+            generate_risk_dashboard(risk_data["dashboard"], str(risk_html_path))
+        if args.include_roadmap:
+            generate_remediation_roadmap_text(
+                risk_data["dashboard"].get("remediation_roadmap", {}),
+                str(roadmap_text_path),
+            )
+        print(f"Offline assessment artifacts written to: {output_dir}")
+        return 0
 
     if args.risk_only:
         if not recon_json_path.exists() or not vuln_json_path.exists():
