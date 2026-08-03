@@ -14,7 +14,12 @@ from report.html_generator import (
     generate_risk_dashboard,
 )
 from risk import assess_risk
-from utils import apply_config_file_overrides, apply_runtime_profile, setup_logging
+from utils import (
+    apply_config_file_overrides,
+    apply_env_file_overrides,
+    apply_runtime_profile,
+    setup_logging,
+)
 
 
 def run_recon_phase(target: str, verbose: bool) -> dict:
@@ -73,6 +78,32 @@ def _validate_target(target: str) -> None:
     pattern = re.compile(r"^(?=.{1,253}$)(?!-)(?:[a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,63}$")
     if not pattern.fullmatch(target):
         raise ValueError("Invalid target domain format. Example: example.com")
+
+
+def _validate_offline_fixture(fixture: dict) -> None:
+    if not isinstance(fixture, dict):
+        raise ValueError("offline-data must be a JSON object")
+
+    recon = fixture.get("recon_results")
+    if not isinstance(recon, dict):
+        raise ValueError("offline-data.recon_results must be an object")
+    if not isinstance(recon.get("domain"), str) or not recon.get("domain"):
+        raise ValueError("offline-data.recon_results.domain must be a non-empty string")
+    if not isinstance(recon.get("fingerprints"), dict):
+        raise ValueError("offline-data.recon_results.fingerprints must be an object")
+
+    vuln = fixture.get("vulnerability_results")
+    if vuln is not None:
+        if not isinstance(vuln, dict):
+            raise ValueError("offline-data.vulnerability_results must be an object")
+        for software, items in vuln.items():
+            if not isinstance(software, str):
+                raise ValueError("offline-data.vulnerability_results keys must be strings")
+            if not isinstance(items, list):
+                raise ValueError("offline-data.vulnerability_results values must be lists")
+            for item in items:
+                if not isinstance(item, dict):
+                    raise ValueError("offline-data vulnerability entries must be objects")
 
 
 def parse_args() -> argparse.Namespace:
@@ -137,12 +168,18 @@ def parse_args() -> argparse.Namespace:
         "--offline-data",
         help="Path to JSON fixture with recon_results and optional vulnerability_results",
     )
+    parser.add_argument(
+        "--env-file",
+        default=".env",
+        help="Path to .env file for secret/runtime overrides (default: .env)",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
     apply_runtime_profile(args.profile)
+    apply_env_file_overrides(args.env_file, required=(args.env_file != ".env"))
     apply_config_file_overrides(args.config_file)
     setup_logging(args.verbose, log_format=args.log_format)
     _validate_target(args.target)
@@ -158,6 +195,7 @@ def main() -> int:
 
     if args.offline_data:
         fixture = json.loads(Path(args.offline_data).read_text(encoding="utf-8"))
+        _validate_offline_fixture(fixture)
         recon_data = fixture.get("recon_results", {})
         if not recon_data:
             raise ValueError("offline-data requires recon_results object")

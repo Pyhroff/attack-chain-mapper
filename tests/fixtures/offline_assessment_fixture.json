@@ -1,0 +1,59 @@
+{
+  "recon_results": {
+    "domain": "example.com",
+    "fingerprints": {
+      "jenkins.example.com": [
+        {
+          "http": {
+            "status_code": 200,
+            "headers": {
+              "X-Jenkins": "2.404.1"
+            }
+          },
+          "https": {
+            "status_code": 200,
+            "headers": {
+              "X-Jenkins": "2.404.1"
+            }
+          },
+          "tech_stack": [
+            {
+              "technology": "Jenkins",
+              "version": "2.404.1"
+            }
+          ]
+        }
+      ],
+      "files.s3.example.com": [
+        {
+          "http": {
+            "status_code": 200,
+            "headers": {}
+          },
+          "https": {
+            "status_code": 200,
+            "headers": {}
+          },
+          "tech_stack": [
+            {
+              "technology": "AWS S3",
+              "version": "unknown"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "vulnerability_results": {
+    "jenkins": [
+      {
+        "cve_id": "CVE-2024-23897",
+        "software": "jenkins",
+        "version": "2.404.1",
+        "cvss": 9.1,
+        "patch_version": "2.405.1",
+        "priority": 9
+      }
+    ]
+  }
+}
