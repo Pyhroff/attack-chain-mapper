@@ -39,13 +39,46 @@ python main.py example.com --risk-only
 
 # Output format control
 python main.py example.com --output-format html   # or json, or both (default)
+
+# Runtime hardening options
+python main.py example.com --profile deep --log-format json
+python main.py example.com --config-file ./runtime_config.json
+python main.py example.com --offline-data ./fixtures/sample_assessment.json
 ```
 
 ## Output
 
 Running the full pipeline generates:
-- `risk_assessment_<domain>_<timestamp>.json` — raw structured data
-- `risk_dashboard_<domain>_<timestamp>.html` — visual dashboard (risk matrix, asset table, dependency map, remediation timeline)
-- `remediation_roadmap_<domain>_<timestamp>.txt` — plain-text patching plan
+- `recon_results.json` — recon findings
+- `vulnerability_results.json` — CVE mapping with patch intelligence
+- `risk_assessment.json` — full risk assessment object
+- `executive_summary.json` — concise management summary
+- `risk_dashboard.html` — visual dashboard (risk matrix, asset table, dependency map, remediation timeline)
+- `remediation_roadmap.txt` — plain-text patching plan (when `--include-roadmap` is set)
+- `attack_chain_report.html` — legacy placeholder report
 
 ## Architecture
+
+## Phase Status
+
+1. **Phase 1 — Scaffold**: ✅ Done  
+   Project structure, CLI entrypoint, config template, utilities.
+2. **Phase 2 — Recon Module**: ✅ Done  
+   Subdomain discovery, DNS resolution, service fingerprinting, misconfiguration checks.
+3. **Phase 3 — Vulnerability Intelligence (defensive)**: ✅ Done  
+   NVD querying, CVE filtering, cache/rate limiting, patch guidance, remediation priority.
+4. **Phase 4 — Risk Dashboard**: ✅ Done  
+   Asset criticality, composite risk scoring, dependency mapping, roadmap, HTML dashboard.
+5. **Phase 5 — Automated Tests**: ✅ Done  
+   Recon/CVE/Risk unit tests + CLI integration tests.
+6. **Phase 6 — Hardening (initial pass)**: ✅ Done  
+   Runtime profiles, JSON logging option, config-file overrides, input validation, offline fixture mode.
+
+## When Is This "Done"?
+
+Core MVP is already complete at this point (Phases 1-6 above).  
+Any remaining work is enhancement-only, not blocker work:
+
+1. `.env` secret loading with precedence rules
+2. end-to-end fixture regression test for all output artifacts
+3. stricter schema validation for `--offline-data`
