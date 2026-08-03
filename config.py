@@ -12,6 +12,13 @@ REQUEST_TIMEOUT_SECONDS = 5
 RETRY_ATTEMPTS = 3
 RETRY_BACKOFF_SECONDS = 1.5
 
+DEFAULT_RUNTIME_PROFILE = "standard"
+RUNTIME_PROFILES = {
+    "quick": {"timeout_seconds": 3, "retry_attempts": 2, "retry_backoff_seconds": 0.75},
+    "standard": {"timeout_seconds": 5, "retry_attempts": 3, "retry_backoff_seconds": 1.5},
+    "deep": {"timeout_seconds": 8, "retry_attempts": 4, "retry_backoff_seconds": 2.0},
+}
+
 # Risk scoring customization.
 ASSET_CRITICALITY_RULES = {
     "jenkins": 9,
