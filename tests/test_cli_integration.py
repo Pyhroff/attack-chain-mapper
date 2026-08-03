@@ -10,6 +10,9 @@ import main
 
 
 class CliIntegrationTests(unittest.TestCase):
+    def setUp(self):
+        self.fixture_path = Path(__file__).parent / "fixtures" / "offline_assessment_fixture.json"
+
     @patch("main.setup_logging")
     @patch("main.apply_runtime_profile")
     @patch("main.run_recon_phase")
@@ -102,6 +105,52 @@ class CliIntegrationTests(unittest.TestCase):
         with patch("sys.argv", argv):
             with self.assertRaises(ValueError):
                 main.main()
+
+    @patch("main.setup_logging")
+    def test_offline_fixture_generates_all_expected_artifacts(self, _mock_logging):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            argv = [
+                "main.py",
+                "example.com",
+                "--offline-data",
+                str(self.fixture_path),
+                "--output",
+                tmpdir,
+                "--output-format",
+                "both",
+                "--include-roadmap",
+            ]
+            with patch("sys.argv", argv):
+                rc = main.main()
+
+            out_dir = Path(tmpdir)
+            self.assertEqual(rc, 0)
+            for name in (
+                "recon_results.json",
+                "vulnerability_results.json",
+                "risk_assessment.json",
+                "executive_summary.json",
+                "risk_dashboard.html",
+                "remediation_roadmap.txt",
+            ):
+                self.assertTrue((out_dir / name).exists(), msg=f"missing artifact: {name}")
+
+            summary = json.loads((out_dir / "executive_summary.json").read_text(encoding="utf-8"))
+            self.assertEqual(summary["domain"], "example.com")
+
+    @patch("main.setup_logging")
+    @patch("main.apply_runtime_profile")
+    def test_invalid_offline_fixture_schema_is_rejected(self, _mock_profile, _mock_logging):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bad_fixture = Path(tmpdir) / "bad_fixture.json"
+            bad_fixture.write_text(
+                json.dumps({"recon_results": {"domain": "example.com"}}),
+                encoding="utf-8",
+            )
+            argv = ["main.py", "example.com", "--offline-data", str(bad_fixture), "--output", tmpdir]
+            with patch("sys.argv", argv):
+                with self.assertRaises(ValueError):
+                    main.main()
 
 
 if __name__ == "__main__":

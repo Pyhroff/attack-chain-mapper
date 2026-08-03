@@ -76,6 +76,40 @@ def apply_config_file_overrides(config_file: str | None) -> dict:
     return applied
 
 
+def apply_env_file_overrides(env_file: str | None, required: bool = False) -> dict:
+    """Apply .env-style overrides. Returns applied keys."""
+    if not env_file:
+        return {}
+    path = Path(env_file)
+    if not path.exists():
+        if required:
+            raise FileNotFoundError(f"Environment file not found: {env_file}")
+        return {}
+
+    applied = {}
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("'").strip('"')
+
+        if key in ("SHODAN_API_KEY", "VIRUSTOTAL_API_KEY", "NVD_API_KEY"):
+            setattr(config, key, value)
+            applied[key] = "set" if value else "empty"
+        elif key == "REQUEST_TIMEOUT_SECONDS":
+            config.REQUEST_TIMEOUT_SECONDS = int(value)
+            applied[key] = config.REQUEST_TIMEOUT_SECONDS
+        elif key == "RETRY_ATTEMPTS":
+            config.RETRY_ATTEMPTS = int(value)
+            applied[key] = config.RETRY_ATTEMPTS
+        elif key == "RETRY_BACKOFF_SECONDS":
+            config.RETRY_BACKOFF_SECONDS = float(value)
+            applied[key] = config.RETRY_BACKOFF_SECONDS
+    return applied
+
+
 def retry(
     attempts: int = 3,
     backoff_seconds: float = 1.0,

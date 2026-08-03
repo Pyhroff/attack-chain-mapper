@@ -26,6 +26,12 @@ pip install -r requirements.txt
 
 Fill in API keys in `config.py` (Shodan and NVD are optional but recommended — the tool degrades gracefully without them, just with less coverage).
 
+You can also use environment file overrides:
+
+```bash
+cp .env.example .env
+```
+
 ## Usage
 
 ```bash
@@ -44,7 +50,14 @@ python main.py example.com --output-format html   # or json, or both (default)
 python main.py example.com --profile deep --log-format json
 python main.py example.com --config-file ./runtime_config.json
 python main.py example.com --offline-data ./fixtures/sample_assessment.json
+python main.py example.com --env-file ./.env
 ```
+
+Configuration precedence (highest to lowest):
+1. `--config-file` JSON values
+2. `.env` / `--env-file` values
+3. `--profile` runtime defaults
+4. `config.py` defaults
 
 ## Output
 
@@ -76,9 +89,8 @@ Running the full pipeline generates:
 
 ## When Is This "Done"?
 
-Core MVP is already complete at this point (Phases 1-6 above).  
-Any remaining work is enhancement-only, not blocker work:
-
-1. `.env` secret loading with precedence rules
-2. end-to-end fixture regression test for all output artifacts
-3. stricter schema validation for `--offline-data`
+Core MVP + hardening scope is complete (Phases 1-6).  
+The previously listed hardening follow-ups are now implemented:
+1. `.env` secret loading with precedence rules ✅
+2. end-to-end fixture regression test for all output artifacts ✅
+3. stricter schema validation for `--offline-data` ✅
