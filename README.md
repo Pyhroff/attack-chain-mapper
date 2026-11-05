@@ -1,4 +1,6 @@
-# Vulnerability Risk Assessment Tool
+# attack-chain-mapper
+
+[![CI](https://github.com/Pyhroff/attack-chain-mapper/actions/workflows/ci.yml/badge.svg)](https://github.com/Pyhroff/attack-chain-mapper/actions/workflows/ci.yml)
 
 Automated recon, CVE correlation, and risk-based patch prioritization for security teams.
 
@@ -72,29 +74,9 @@ Running the full pipeline generates:
 - `remediation_roadmap.txt` — plain-text patching plan (when `--include-roadmap` is set)
 - `attack_chain_report.html` — legacy placeholder report
 
-## Architecture
+## Limitations and responsible use
 
-## Phase Status
-
-1. **Phase 1 — Scaffold**: ✅ Done  
-   Project structure, CLI entrypoint, config template, utilities.
-2. **Phase 2 — Recon Module**: ✅ Done  
-   Subdomain discovery, DNS resolution, service fingerprinting, misconfiguration checks.
-3. **Phase 3 — Vulnerability Intelligence (defensive)**: ✅ Done  
-   NVD querying, CVE filtering, cache/rate limiting, patch guidance, remediation priority.
-4. **Phase 4 — Risk Dashboard**: ✅ Done  
-   Asset criticality, composite risk scoring, dependency mapping, roadmap, HTML dashboard.
-5. **Phase 5 — Automated Tests**: ✅ Done  
-   Recon/CVE/Risk unit tests + CLI integration tests.
-6. **Phase 6 — Hardening (initial pass)**: ✅ Done  
-   Runtime profiles, JSON logging option, config-file overrides, input validation, offline fixture mode.
-7. **Phase 7 — Delivery/Ops readiness (lean)**: ✅ Done  
-   CI workflow, packaging entrypoint, Docker support, and detailed user guide.
-
-## When Is This "Done"?
-
-Core MVP + hardening scope is complete (Phases 1-6).  
-The previously listed hardening follow-ups are now implemented:
-1. `.env` secret loading with precedence rules ✅
-2. end-to-end fixture regression test for all output artifacts ✅
-3. stricter schema validation for `--offline-data` ✅
+- Run it only against domains and assets you own or are authorised to assess; recon sends DNS queries and connects to discovered services.
+- CVE correlation matches fingerprinted product and version strings against NVD, so it inherits banner inaccuracies and misses backported patches; treat matches as leads to verify.
+- Risk scores combine asset criticality with CVE severity using fixed weights; they rank remediation work, they do not measure exploitability.
+- `--offline-data` fixtures let you run the full pipeline without network access for demos and tests.
