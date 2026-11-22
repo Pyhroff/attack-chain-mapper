@@ -80,3 +80,7 @@ Running the full pipeline generates:
 - CVE correlation matches fingerprinted product and version strings against NVD, so it inherits banner inaccuracies and misses backported patches; treat matches as leads to verify.
 - Risk scores combine asset criticality with CVE severity using fixed weights; they rank remediation work, they do not measure exploitability.
 - `--offline-data` fixtures let you run the full pipeline without network access for demos and tests.
+
+## License
+
+MIT, see [LICENSE](LICENSE).

@@ -1,0 +1,2 @@
+[console_scripts]
+attack-chain-mapper = main:main
