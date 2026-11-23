@@ -7,3 +7,6 @@ __pycache__/
 reports/
 cve_query_cache.json
 cve/cve_query_cache.json
+*.egg-info/
+build/
+dist/

@@ -1,6 +1,0 @@
-requests
-click
-jinja2
-shodan
-dnspython
-beautifulsoup4
